@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOP SECRET</title>
+
+    <style>
+        .shownpw {
+            -webkit-text-security: none !important;
+        }
+        .shownpw::-ms-reveal,
+        .shownpw::-ms-clear {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <form id="codeform">
+        <label for="code">CODE</label>
+        <input type="password" id="code" name="code" class="shownpw" required> 
+        <button type="submit">Submit</button>
+	<div id="woot"></div>
+    </form>
+
+    <p id="output"></p>
+
+    <script type="module">
+        const codeInput = document.getElementById("code");
+        const salt = "TOP-SECRET-code-salt-text";
+	const wootMode = window.location.hash === "#woot";
+
+        codeInput.addEventListener("blur", function() {
+            this.type = "password";
+        });
+        codeInput.addEventListener("focus", function() {
+            this.type = "text";
+        });
+
+	if (wootMode) {
+	    document.getElementById("woot").innerHTML = `
+        <label for="originaltext">Original Text</label>
+        <input type="text" id="originaltext" name="originaltext"> 
+	    `;
+	}
+
+	async function deriveKeyAndIv(password, saltString, iterations = 100000, keyLengthBits = 384) {
+            const encoder = new TextEncoder();
+
+            const baseKey = await window.crypto.subtle.importKey(
+                "raw",
+                encoder.encode(password),
+                "PBKDF2",
+                false,
+                ["deriveBits", "deriveKey"]
+            );
+
+            const derivedBits = await window.crypto.subtle.deriveBits(
+                {
+                    name: "PBKDF2",
+                    salt: encoder.encode(saltString),
+                    iterations: iterations,
+                    hash: "SHA-512"
+                },
+                baseKey,
+                keyLengthBits
+            );
+            const fullByteArray = new Uint8Array(derivedBits);
+
+            // Front part (bytes 0 to 31): 256-bit Encryption Key
+            const keyBytes = fullByteArray.slice(0, 32);
+
+            // Back part (last 12 bytes, bytes 36 to 47): 96-bit IV
+            const ivBytes = fullByteArray.slice(36, 48);
+
+            const cryptoKey = await window.crypto.subtle.importKey(
+                "raw",
+                keyBytes,
+                { name: "AES-GCM" },
+                false,
+                ["encrypt", "decrypt"]
+            );
+
+            return { key: cryptoKey, iv: ivBytes };
+        }
+
+        async function encryptString(plaintext, keyAndIv) {
+            const encoder = new TextEncoder();
+
+            // Encrypt the plaintext
+            const encryptedBuffer = await window.crypto.subtle.encrypt(
+                { name: "AES-GCM", iv: keyAndIv.iv },
+                keyAndIv.key,
+                encoder.encode(plaintext)
+            );
+
+	    const encryptedArray = new Uint8Array(encryptedBuffer);
+            return btoa(String.fromCharCode(...encryptedArray));
+        }
+
+	async function decryptString(base64Ciphertext, keyAndIv) {
+            const decoder = new TextDecoder();
+
+            const binaryString = atob(base64Ciphertext);
+            const byteArray = Uint8Array.from(binaryString, char => char.charCodeAt(0));
+            const decryptedBuffer = await window.crypto.subtle.decrypt(
+                { name: "AES-GCM", iv: keyAndIv.iv },
+                keyAndIv.key,
+                byteArray
+            );
+            return decoder.decode(decryptedBuffer);
+        }
+
+        document.getElementById("codeform").addEventListener("submit", async function(event) {
+            event.preventDefault();
+            const rawCode = codeInput.value;
+            try {
+                const derivedKeyAndIv = await deriveKeyAndIv(rawCode, salt, 100000, 384);
+		if (wootMode) {
+                    const originaltextInput = document.getElementById("originaltext");
+		    const encryptedText = await encryptString(originaltextInput.value, derivedKeyAndIv);
+		    document.getElementById("output").innerHTML = `encrypted: ${encryptedText}`;
+		    codeInput.value = "";
+		} else {
+		    const decryptedText = await decryptString("rAvLK3eeEv2Alupg3pe3p19hai0rvJr5", derivedKeyAndIv);
+		    document.getElementById("output").innerHTML = `decrypted: ${decryptedText}`;
+		}
+            } catch (err) {
+                console.error("Key derivation error:", err);
+            }
+        });
+    </script>
+</body>
+</html>
