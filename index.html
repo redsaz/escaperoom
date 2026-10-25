@@ -185,6 +185,10 @@
             <button class="dos-btn">TRY AGAIN</button>
         </form>
     </dialog>
+    <dialog class="screen dos-container red-theme" id="unsupported-screen">
+        <div class="system-msg">A modern browser must be used.<br>
+        https (not http) must be used.</div>
+    </dialog>
     <dialog class="screen dos-container" id="message-screen">
         <div id="output" class="system-msg"></div>
     </dialog>
@@ -195,7 +199,12 @@
         const salt = "TOP-SECRET-code-salt-text";
         const wootMode = window.location.hash === "#woot";
         const errorScreen = document.getElementById("error-screen");
+        const unsupportedScreen = document.getElementById("unsupported-screen");
         const messageScreen = document.getElementById("message-screen");
+
+        if (window.crypto.subtle == undefined) {
+            unsupportedScreen.showModal();
+        }
 
         codeInput.addEventListener("blur", function () {
             this.type = "password";
