@@ -1,50 +1,220 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TOP SECRET</title>
 
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        .hidden {
+            display: none !important;
+        }
+
+        :root {
+            --term-color: #55ff55;
+            --term-dim: #228822;
+            --term-highlight: #ffff55;
+        }
+
+        /* Red Theme Override */
+        .red-theme {
+            --term-color: #ff3333;
+            --term-dim: #882222;
+            --term-highlight: #ffff55;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            border-radius: 0 !important;
+
+            font-variant-ligatures: none;
+        }
+
+        body {
+            background-color: #000000;
+            color: var(--term-color);
+            font-family: 'VT323', 'Courier New', Courier, monospace;
+            font-size: 24px;
+            line-height: 1.2;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 20px;
+        }
+
+
+        .dos-container {
+            width: 100%;
+            max-width: 800px;
+            color: var(--term-color);
+            background-color: #000000;
+            border: 2px solid var(--term-color);
+            padding: 20px;
+            box-shadow: none;
+        }
+
+        .header {
+            margin-bottom: 24px;
+            white-space: pre;
+            border-bottom: 1px dashed var(--term-color);
+            padding-bottom: 12px;
+        }
+
+        .system-msg {
+            margin-bottom: 20px;
+        }
+
+        .prompt-line {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .prompt-label {
+            margin-right: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .dos-input-box {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            min-width: 250px;
+            border: 2px solid var(--term-color);
+            padding: 2px 8px;
+            margin-left: 4px;
+        }
+
+        .dos-input-box:focus-within {
+            border: 2px solid var(--term-highlight);
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--term-highlight);
+            font-family: 'VT323', 'Courier New', Courier, monospace;
+            font-size: 24px;
+            width: 100%;
+            caret-color: var(--term-color);
+        }
+
+        #code {
+            text-transform: uppercase;
+        }
+
+        .dos-btn {
+            background-color: #000000;
+            color: var(--term-color);
+            border: 2px solid var(--term-color);
+            font-family: 'VT323', 'Courier New', Courier, monospace;
+            font-size: 20px;
+            padding: 4px 16px;
+            cursor: pointer;
+            margin-top: 12px;
+            text-transform: uppercase;
+            box-shadow: none;
+        }
+
+        .dos-btn:hover,
+        .dos-btn:focus {
+            background-color: var(--term-color);
+            color: #000000;
+            outline: none;
+        }
+
+        .woot-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 0px none #000;
+        }
+
+        dialog::backdrop {
+            background-color: #000000 !important;
+            opacity: 1 !important;
+        }
+
+        dialog.dos-container {
+            position: fixed;
+            /* Match body vertical spacing: 40px from the top */
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            /* Center horizontally ONLY */
+            margin: 0;
+
+            /* Matching width constraints */
+            width: calc(100% - 40px);
+            max-width: 800px;
+        }
+
         .shownpw {
             -webkit-text-security: none !important;
         }
+
         .shownpw::-ms-reveal,
         .shownpw::-ms-clear {
             display: none;
         }
     </style>
 </head>
-<body>
-    <form id="codeform">
-        <label for="code">CODE</label>
-        <input type="password" id="code" name="code" class="shownpw" required> 
-        <button type="submit">Submit</button>
-	<div id="woot"></div>
-    </form>
 
-    <p id="output"></p>
+<body>
+    <div class="screen dos-container" id="prompt-screen">
+        <form id="codeform">
+            <div class="prompt-line">
+                <label for="code">ENTER CODE NAME: </label>
+                <div class="dos-input-box">
+                    <input type="password" id="code" name="code" class="shownpw" required autofocus autocomplete="off">
+                </div>
+            </div>
+            <div id="woot"></div>
+            <button type="submit" class="dos-btn">SUBMIT</button>
+        </form>
+    </div>
+    <dialog class="screen dos-container red-theme" id="error-screen">
+        <div class="system-msg">CODE NAME NOT FOUND</div>
+        <form method="dialog">
+            <button class="dos-btn">TRY AGAIN</button>
+        </form>
+    </dialog>
+    <dialog class="screen dos-container" id="message-screen">
+        <div id="output" class="system-msg"></div>
+    </dialog>
 
     <script type="module">
+        const encryptedMessage = "DP6ZZhnwUprJG7DHcfJe9iFrE9MUVGDjjmTCkYdUimQVinu0vl0RbqBpSBnrhZkbJSSQutFehOe3+U3d0MB8gH5PQE7AajSHfH3a4RLL00ljOcx2WnCXHixCulhSvVsa";
         const codeInput = document.getElementById("code");
         const salt = "TOP-SECRET-code-salt-text";
-	const wootMode = window.location.hash === "#woot";
+        const wootMode = window.location.hash === "#woot";
+        const errorScreen = document.getElementById("error-screen");
+        const messageScreen = document.getElementById("message-screen");
 
-        codeInput.addEventListener("blur", function() {
+        codeInput.addEventListener("blur", function () {
             this.type = "password";
         });
-        codeInput.addEventListener("focus", function() {
+        codeInput.addEventListener("focus", function () {
             this.type = "text";
         });
 
-	if (wootMode) {
-	    document.getElementById("woot").innerHTML = `
-        <label for="originaltext">Original Text</label>
-        <input type="text" id="originaltext" name="originaltext"> 
-	    `;
-	}
+        if (wootMode) {
+            document.getElementById("woot").innerHTML = `
+                <label for="originaltext" class="prompt-line">MESSAGE:</label>
+                <input type="text" class="dos-input-box" id="originaltext" name="originaltext" value="">
+                `;
+        }
 
-	async function deriveKeyAndIv(password, saltString, iterations = 100000, keyLengthBits = 384) {
+        async function deriveKeyAndIv(password, saltString, iterations = 100000, keyLengthBits = 384) {
             const encoder = new TextEncoder();
 
             const baseKey = await window.crypto.subtle.importKey(
@@ -94,11 +264,11 @@
                 encoder.encode(plaintext)
             );
 
-	    const encryptedArray = new Uint8Array(encryptedBuffer);
+            const encryptedArray = new Uint8Array(encryptedBuffer);
             return btoa(String.fromCharCode(...encryptedArray));
         }
 
-	async function decryptString(base64Ciphertext, keyAndIv) {
+        async function decryptString(base64Ciphertext, keyAndIv) {
             const decoder = new TextDecoder();
 
             const binaryString = atob(base64Ciphertext);
@@ -111,24 +281,26 @@
             return decoder.decode(decryptedBuffer);
         }
 
-        document.getElementById("codeform").addEventListener("submit", async function(event) {
+        document.getElementById("codeform").addEventListener("submit", async function (event) {
             event.preventDefault();
-            const rawCode = codeInput.value;
+            const rawCode = codeInput.value.toUpperCase();
             try {
                 const derivedKeyAndIv = await deriveKeyAndIv(rawCode, salt, 100000, 384);
-		if (wootMode) {
+                let outputText = "";
+                if (wootMode) {
                     const originaltextInput = document.getElementById("originaltext");
-		    const encryptedText = await encryptString(originaltextInput.value, derivedKeyAndIv);
-		    document.getElementById("output").innerHTML = `encrypted: ${encryptedText}`;
-		    codeInput.value = "";
-		} else {
-		    const decryptedText = await decryptString("rAvLK3eeEv2Alupg3pe3p19hai0rvJr5", derivedKeyAndIv);
-		    document.getElementById("output").innerHTML = `decrypted: ${decryptedText}`;
-		}
+                    outputText = await encryptString(originaltextInput.value, derivedKeyAndIv);
+                } else {
+                    outputText = await decryptString(encryptedMessage, derivedKeyAndIv);
+                }
+                document.getElementById("output").innerHTML = `${outputText}`;
+                messageScreen.showModal();
             } catch (err) {
-                console.error("Key derivation error:", err);
+                errorScreen.showModal();
+                console.error("Error:", err);
             }
         });
     </script>
 </body>
+
 </html>
